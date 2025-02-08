@@ -1,20 +1,10 @@
-import {
-  StrictMode,
-  useContext,
-  createContext,
-  useState,
-  useEffect,
-} from "react";
 import { createRoot } from "react-dom/client";
-import {
-  createBrowserRouter,
-  RouterProvider,
-  Navigate,
-} from "react-router-dom";
+import { StrictMode } from "react";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthProvider"; // Correct import
 import "./index.css";
 import App from "./App.jsx";
 import Login from "./component/Login.jsx";
-import Dashboard from "./component/dashboard.jsx";
 import Register from "./component/Register.jsx";
 import Home from "./component/index/Home.jsx";
 import Invite from "./component/invite/Invite.jsx";
@@ -27,159 +17,39 @@ import Revenue from "./component/me/Revenue.jsx";
 import Initiate from "./component/me/Initiate.jsx";
 import ModifyPassword from "./component/me/ModifyPassword.jsx";
 import WithdrawalRecord from "./component/me/WithdrawalRecord.jsx";
+import EmailRequest from "./Admin/EmailRequest.jsx";
+import VerifyOTP from "./Admin/VerifyOTP.jsx";
+import ResetPassword from "./Admin/ResetPassword.jsx";
+import Admin from "./Admin/Admin.jsx";
+import AdminLogin from "./Admin/Login";
+import SuccessMessage from "./Admin/SuccessMessage.jsx";
+import AdminProtectedRoute from "./Admin/AdminProtectedRoute.jsx";
 
-// Authentication Context
-const AuthContext = createContext();
-
-// Custom hook for accessing auth state
-const useAuth = () => useContext(AuthContext);
-
-// AuthProvider component
-const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Rehydrate authentication state on initial load
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  const login = () => setIsAuthenticated(true);
-  const logout = () => {
-    localStorage.removeItem("token");
-    setIsAuthenticated(false);
-  };
-
-  return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-// ProtectedRoute component
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
-};
-
-// Router with protected routes
+// Router Configuration
 const router = createBrowserRouter([
-  {
-    path: "/register",
-    element: <Register />,
-  },
-  {
-    path: "/",
-    element: (
-      <ProtectedRoute>
-        <App />
-      </ProtectedRoute>
-    ), // Redirect or Main Layout
-  },
-  {
-    path: "/login",
-    element: <Login />,
-  },
-  {
-    path: "/dashboard",
-    element: <Dashboard />,
-  },
-  {
-    path: "/home",
-    element: (
-      <ProtectedRoute>
-        <Home />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/invite",
-    element: (
-      <ProtectedRoute>
-        <Invite />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/activity",
-    element: (
-      <ProtectedRoute>
-        <Activity />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/profile",
-    element: (
-      <ProtectedRoute>
-        <Profile />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/test",
-    element: (
-      <ProtectedRoute>
-        <Test />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/state",
-    element: (
-      <ProtectedRoute>
-        <State />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/withdraw",
-    element: (
-      <ProtectedRoute>
-        <WithdrawalForm />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/revenue",
-    element: (
-      <ProtectedRoute>
-        <Revenue />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/initiate",
-    element: (
-      <ProtectedRoute>
-        <Initiate />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/modifyPassword",
-    element: (
-      <ProtectedRoute>
-        <ModifyPassword />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "withdrawalRecord",
-    element: (
-      <ProtectedRoute>
-        <WithdrawalRecord />
-      </ProtectedRoute>
-    ),
-  },
+  { path: "/", element: <App /> },
+  { path: "/register", element: <Register /> },
+  { path: "/login", element: <Login /> },
+  { path: "/home", element: <Home /> },
+  { path: "/invite", element: <Invite /> },
+  { path: "/activity", element: <Activity /> },
+  { path: "/profile", element: <Profile /> },
+  { path: "/test", element: <Test /> },
+  { path: "/withdraw", element: <WithdrawalForm /> },
+  { path: "/revenue", element: <Revenue /> },
+  { path: "/initiate", element: <Initiate /> },
+  { path: "/modifyPassword", element: <ModifyPassword /> },
+  { path: "/withdrawalRecord", element: <WithdrawalRecord /> },
+
+  // Admin Routes
+  { path: "/admin/login", element: <AdminLogin /> },
+  { path: "/admin", element: <AdminProtectedRoute><Admin /></AdminProtectedRoute> },
 ]);
 
+// Render Application
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <AuthProvider>
+    <AuthProvider> {/* Wrapping AuthProvider here */}
       <RouterProvider router={router} />
     </AuthProvider>
   </StrictMode>
