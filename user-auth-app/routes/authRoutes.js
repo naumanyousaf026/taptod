@@ -123,10 +123,12 @@ router.post("/login", async (req, res) => {
   if (!user || !(await bcrypt.compare(password, user.password))) {
     return res.status(401).json({ message: "Invalid credentials" });
   }
+// When storing the token
 
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
     expiresIn: "1h",
   });
+  
   res.json({ token });
 });
 
@@ -297,7 +299,9 @@ router.get("/current-user", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
-
+router.get('/verify', verifyToken, (req, res) => {
+  res.status(200).json({ valid: true });
+});
 // router.get("/generate-whatsapp-qr", async (req, res) => {
 //   const { secret, sid } = req.query;
 

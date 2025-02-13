@@ -1,34 +1,38 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from '../context/AuthContext';
 
-const Login = () => {
+const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-// Store the role explicitly after successful login
-const handleLogin = async (e) => {
-  e.preventDefault();
-  try {
-    const response = await axios.post("http://localhost:5000/api/admin/login", { email, password });
+  const { login } = useAuth();
 
-    console.log("Server Response:", response.data); // Log full response
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post("http://localhost:5000/api/admin/login", {
+        email,
+        password,
+      });
 
-    if (!response.data.token) {
-      throw new Error("Invalid response from server");
+      if (!response.data.token) {
+        throw new Error("Invalid response from server");
+      }
+
+      localStorage.setItem("authToken", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.admin));
+      localStorage.setItem("role", "admin");
+      // Pass both token and role to login function
+      login(response.data.token, "admin");
+
+      navigate("/admin");
+    } catch (err) {
+      setError(err.response?.data?.message || "Something went wrong.");
     }
-
-    localStorage.setItem("authToken", response.data.token);
-    localStorage.setItem("user", JSON.stringify(response.data.admin)); // Store user info
-    localStorage.setItem("role", "admin"); // Set role explicitly
-
-    navigate("/admin"); // Redirect to admin page
-  } catch (err) {
-    console.error("Login Error:", err);
-    setError(err.response?.data?.message || "Something went wrong. Please try again.");
-  }
-};
+  };
 
 
   return (
@@ -85,4 +89,4 @@ const handleLogin = async (e) => {
   );
 };
 
-export default Login;
+export default AdminLogin;

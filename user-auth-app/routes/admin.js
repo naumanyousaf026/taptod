@@ -81,8 +81,14 @@ router.post("/login", async (req, res) => {
 
     res.json({
       token,
-      admin: { id: admin._id, name: admin.name, email: admin.email },
+      admin: { 
+        id: admin._id, 
+        name: admin.name, 
+        email: admin.email,
+        role: 'admin' // Explicitly include role in response
+      }
     });
+
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Server error", error: error.message });

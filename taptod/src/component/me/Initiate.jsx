@@ -89,12 +89,7 @@ function WithdrawalPage() {
                   </button>
                 ))}
               </div>
-              <p className="text-gray-400 roboto-slab mt-4 text-sm">
-                Account Balance:{" "}
-                <span className="text-green-400 font-semibold">
-                  Rs {accountBalance.toFixed(2)}
-                </span>
-              </p>
+             
             </div>
 
             {/* Withdrawal Details */}

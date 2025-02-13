@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom"; // Import useNavigate for redirection
 import taptod from "../images/taptod_1.png"; // Logo image
 import ForgotPasswordModal from "./ForgotPassword";
+import { saveToken } from "../utils/auth";
+import { useAuth } from "../context/AuthContext";
 
 const ErrorModal = ({ message, isOpen, onClose }) => {
   return (
     isOpen && (
-      <div className="fixed inset-0 flex items-center justify-center z-50">
+      <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
         <div className="bg-white rounded-lg shadow-lg p-5">
           <h2 className="text-lg font-bold text-red-500">Error</h2>
           <p className="mt-2">{message}</p>
@@ -23,31 +25,33 @@ const ErrorModal = ({ message, isOpen, onClose }) => {
 };
 
 const Login = () => {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  
   const [phoneError, setPhoneError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
-  const [errorMessage, setErrorMessage] = useState(""); // State for error message
-  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false); // State for error modal
-  const [phone, setPhone] = useState(""); // State for phone number
-  const [password, setPassword] = useState(""); // State for password
-  const navigate = useNavigate(); // Use navigate for redirection
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
 
   // Phone number validation
   const validatePhone = (e) => {
-    const phone = e.target.value;
-    const regex = /^[0-9]{10}$/; // Example regex for 10-digit phone numbers
-    setPhone(phone); // Update phone state
+    const phoneValue = e.target.value;
+    const regex = /^[0-9]{10}$/; // 10-digit phone number validation
+    setPhone(phoneValue);
     setPhoneError(
-      !regex.test(phone) ? "Please enter a valid phone number." : ""
+      !regex.test(phoneValue) ? "Please enter a valid phone number." : ""
     );
   };
 
   // Password validation
   const validatePassword = (e) => {
-    const password = e.target.value;
-    setPassword(password); // Update password state
+    const passwordValue = e.target.value;
+    setPassword(passwordValue);
     setPasswordError(
-      password.length < 6 ? "Password must be at least 6 characters." : ""
+      passwordValue.length < 6 ? "Password must be at least 6 characters." : ""
     );
   };
 
@@ -56,9 +60,15 @@ const Login = () => {
     setIsModalOpen(!isModalOpen);
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!phone || !password) {
+      setErrorMessage("Please fill in all fields.");
+      setIsErrorModalOpen(true);
+      return;
+    }
+
     if (!phoneError && !passwordError) {
       try {
         const response = await fetch("http://localhost:5000/api/auth/login", {
@@ -69,13 +79,15 @@ const Login = () => {
           body: JSON.stringify({ phone, password }),
         });
 
+        const data = await response.json();
+
         if (response.ok) {
-          const data = await response.json();
+          login(data.token);
           localStorage.setItem("token", data.token);
-          console.log("Login successful"); // Store JWT token
-          navigate("/home"); // Redirect to home page
+          localStorage.setItem("role", "user");
+          saveToken(data.token);
+          navigate("/home");
         } else {
-          const data = await response.json();
           setErrorMessage(data.message || "Login failed. Please try again.");
           setIsErrorModalOpen(true);
         }
@@ -107,7 +119,7 @@ const Login = () => {
 
       {/* Main Content */}
       <main className="flex-grow flex flex-col items-center px-5">
-        <div className="w-full max-w-lg mt-8 px-8 py-5 bg-white rounded-xl shadow-2xl transform transition-all hover:shadow-2xl">
+        <div className="w-full max-w-lg mt-8 px-8 py-5 bg-white rounded-xl shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Phone Number */}
             <div className="relative">
@@ -123,6 +135,7 @@ const Login = () => {
                   type="tel"
                   id="phone"
                   placeholder="Enter your phone number"
+                  value={phone}
                   onChange={validatePhone}
                   className="w-full outline-none bg-transparent placeholder-gray-400"
                   required
@@ -146,6 +159,7 @@ const Login = () => {
                   type="password"
                   id="password"
                   placeholder="Enter your password"
+                  value={password}
                   onChange={validatePassword}
                   className="w-full outline-none bg-transparent placeholder-gray-400"
                   required

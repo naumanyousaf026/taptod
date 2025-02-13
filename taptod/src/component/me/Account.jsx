@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";  // Import useNavigate hook
 import shahzad from "../../images/shahzad.jpeg";
 
 const UserProfile = () => {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate(); // Initialize the navigate function
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -30,6 +32,10 @@ const UserProfile = () => {
   }, []);
 
   if (!user) return <div>Loading...</div>; // Show loading state while data is being fetched
+
+  const handleWithdrawClick = () => {
+    navigate("/withdraw");  // Navigate to /withdraw page when button is clicked
+  };
 
   return (
     <div className="max-w-sm mx-auto bg-white border-t-2 border-white shadow">
@@ -59,12 +65,15 @@ const UserProfile = () => {
         {/* Account Balance */}
         <div className="text-center space-y-2 bg-[#e0f7e9] rounded shadow-[-8px_8px_0_#008069] py-5">
           <p className="text-lg font-semibold text-[#008069]">
-            Account Balance
+            Account Balance 
           </p>
           <p className="text-3xl font-bold roboto-slab text-green-400">
             Rs {user.Rewards || "0.0000"}
           </p>
-          <button className="w-[85%] font-bold py-2 mt-4 bg-[#008069] text-[#fff] rounded-lg">
+          <button 
+            onClick={handleWithdrawClick} // Call handleWithdrawClick on button click
+            className="w-[85%] font-bold py-2 mt-4 bg-[#008069] text-[#fff] rounded-lg"
+          >
             Withdraw
           </button>
         </div>
