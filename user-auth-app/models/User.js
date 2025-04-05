@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Self-reference
   resetOtp: { type: String },
   otpExpires: { type: Date },
+    // **Package Details**
+    package: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },  // Reference to Package model
+    packageExpiry: { type: Date },  // Expiry date of the package
+  
 });
 
 // Auto-increment plugin for userId

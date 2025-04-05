@@ -174,5 +174,28 @@ router.post("/verifyotp", async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+router.get("/fetch-groups/:userId", async (req, res) => {
+  try {
+      const { userId } = req.params;
+      const user = await User.findOne({ userId }).populate("package");
+
+      if (!user || !user.package) {
+          return res.status(403).json({ message: "User does not have an active package" });
+      }
+
+      // Only allow fetching numbers for the highest package
+      if (!user.package.fetchFromGroups) {
+          return res.status(403).json({ message: "Your package does not allow fetching group contacts" });
+      }
+
+      const response = await axios.get("https://smspro.pk/api/get/wa.groups", {
+          params: { secret: "e7d0098a46e0af84f43c2b240af5984ae267e08d", unique: "174298486345c48cce2e2d7fbdea1afc51c7c6ad2667e3d69fd6b8a" },
+      });
+
+      res.json(response.data);
+  } catch (error) {
+      res.status(500).json({ message: "Error fetching groups", error: error.message });
+  }
+});
 
 module.exports = router;

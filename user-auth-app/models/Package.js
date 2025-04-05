@@ -1,25 +1,10 @@
-const mongoose = require('mongoose');
-
+const mongoose = require("mongoose");
 const packageSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    enum: ['SELF_NUMBER', 'RANDOM_NUMBER']
-  },
-  price: {
-    type: Number,
-    required: true
-  },
-  messageLimit: {
-    type: Number,
-    required: true,
-    default: 100
-  },
-  active: {
-    type: Boolean,
-    default: true
-  }
+  name: { type: String, required: true, unique: true },
+  price: { type: Number, required: true },
+  validityDays: { type: Number, required: true },
+  maxNumbers: { type: Number, required: true }, // Limit of numbers user can use
+  fetchFromGroups: { type: Boolean, default: false }, // If true, numbers will be fetched from groups
 });
-
 
 module.exports = mongoose.model("Package", packageSchema);
