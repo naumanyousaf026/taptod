@@ -18,9 +18,11 @@ function App() {
     if (step === 2) {
       const fetchQrCode = async () => {
         const storedToken = localStorage.getItem("token");
+        const secret = encodeURIComponent("e7d0098a46e0af84f43c2b240af5984ae267e08d");
+        const sid = encodeURIComponent("1");
         try {
           const response = await fetch(
-            "http://localhost:5000/api/generate-whatsapp-qr?secret=e7d0098a46e0af84f43c2b240af5984ae267e08d&sid=1",
+            `http://localhost:5000/api/generate-whatsapp-qr?secret=${secret}&sid=${sid}`,
             {
               headers: { Authorization: `Bearer ${storedToken}` },
             }
