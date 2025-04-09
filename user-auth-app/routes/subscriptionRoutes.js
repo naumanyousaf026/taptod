@@ -1,125 +1,33 @@
-const express = require("express");
-const router = express.Router();
-const Subscription = require("../models/Subscription");
-const Package = require("../models/Package");
-const verifyToken = require("../middleware/authMiddleware");
-const verifyAdminToken = require("../middleware/adminAuthMiddleware");
+const jwt = require('jsonwebtoken');
 
-// Subscribe to a package
-router.post("/subscribe", verifyToken, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
+// Export the middleware as a function
+const verifyToken = (req, res, next) => {
   try {
-    const { packageId } = req.body;
-    const userId = req.user.userId; // From authentication middleware
-
-    // Find package
-    const selectedPackage = await Package.findById(packageId).session(session);
-    if (!selectedPackage) {
-      await session.abortTransaction();
-      return res.status(404).json({ message: "Package not found" });
-    }
-
-    // Check for existing active subscription
-    const existingSubscription = await Subscription.findOne({ 
-      userId, 
-      status: 'active' 
-    }).session(session);
-
-    if (existingSubscription) {
-      await session.abortTransaction();
-      return res.status(400).json({ 
-        message: "You already have an active subscription" 
+    // Get the token from the headers
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({
+        message: "Authentication failed: No token provided"
       });
     }
-
-    // Calculate expiry date
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + selectedPackage.validityDays);
-
-    // Create new subscription
-    const newSubscription = new Subscription({
-      userId,
-      packageId,
-      packageExpiry: expiryDate
-    });
-
-    await newSubscription.save({ session });
-    await session.commitTransaction();
-
-    // Populate for detailed response
-    await newSubscription.populate('packageId');
-
-    res.status(201).json({
-      message: "Subscription purchased successfully",
-      subscription: {
-        packageName: newSubscription.packageId.name,
-        packageExpiry: newSubscription.packageExpiry
-      }
-    });
+    
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Add user info to request
+    req.user = {
+      userId: decoded.userId,
+      email: decoded.email
+    };
+    
+    next();
   } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({ 
-      message: "Subscription failed", 
-      error: error.message 
-    });
-  } finally {
-    session.endSession();
-  }
-});
-
-// Get current user's subscription
-router.get("/my-subscription", verifyToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-
-    const subscription = await Subscription.findOne({ 
-      userId, 
-      status: 'active' 
-    }).populate('packageId');
-
-    if (!subscription) {
-      return res.status(404).json({ 
-        message: "No active subscription found" 
-      });
-    }
-
-    res.json({
-      package: {
-        name: subscription.packageId.name,
-        price: subscription.packageId.price,
-        validityDays: subscription.packageId.validityDays
-      },
-      purchaseDate: subscription.purchaseDate,
-      expiryDate: subscription.packageExpiry
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      message: "Error fetching subscription", 
-      error: error.message 
+    return res.status(401).json({
+      message: "Authentication failed: Invalid token",
+      error: error.message
     });
   }
-});
+};
 
-// Admin route to view all subscriptions
-router.get("/all-subscriptions", verifyAdminToken, async (req, res) => {
-  try {
-    const subscriptions = await Subscription.find()
-      .populate('userId', 'name email')
-      .populate('packageId', 'name price validityDays');
-
-    res.json({ 
-      success: true, 
-      subscriptions 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: "Error fetching subscriptions", 
-      error: error.message 
-    });
-  }
-});
-
-module.exports = router;
+module.exports = verifyToken;
