@@ -7,6 +7,7 @@ const whatsappServiceRoutes = require("./routes/whatsappService");
 const adminRoutes = require("./routes/admin");
 const packageRoutes = require("./routes/packageRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const adminWaRoutes = require("./routes/adminWaRoutes");
 const dotenv = require("dotenv");
 
 dotenv.config();
@@ -30,6 +31,7 @@ app.use("/api", whatsappServiceRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", packageRoutes);
 app.use("/api", subscriptionRoutes);
+app.use("/api",adminWaRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
