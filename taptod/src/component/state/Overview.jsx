@@ -9,6 +9,7 @@ function App() {
   const [error, setError] = useState("");
   const [showPopup, setShowPopup] = useState(false); // Popup state
   const attemptsRef = useRef(0);
+  const [whatsappInfo, setWhatsappInfo] = useState(null);
 
   const handleLoginClick = () => {
     setStep(2);
@@ -49,6 +50,8 @@ function App() {
       return;
     }
 
+    // Reset attempts when starting
+    attemptsRef.current = 0;
     const maxAttempts = 10;
     const delay = 3000;
 
@@ -58,7 +61,10 @@ function App() {
         setStep(3); // Move to next step even if error occurs
         return;
       }
-
+      
+      attemptsRef.current += 1;
+      console.log("Attempt number:", attemptsRef.current);
+      
       try {
         const response = await fetch(
           `http://localhost:5000/api/get-whatsapp-info?token=${token}`,
@@ -66,20 +72,31 @@ function App() {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
           }
         );
-
-        if (!response.ok) throw new Error("Failed to fetch WhatsApp info.");
+        
+        console.log("Response status:", response.status);
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch WhatsApp info.");
+        }
 
         const data = await response.json();
+        console.log("WhatsApp info response:", data);
 
-        if (data.message.includes("Waiting for WhatsApp information")) {
-          attemptsRef.current += 1;
+        if (data.message && data.message.includes("Waiting for WhatsApp information")) {
           setTimeout(pollWhatsAppInfo, delay);
         } else {
+          setWhatsappInfo(data);
           setStep(3); // Move to next step
         }
       } catch (error) {
-        showErrorPopup("Error fetching WhatsApp information.");
-        setStep(3); // Move to next step even if error occurs
+        console.error("Error occurred while fetching WhatsApp info:", error);
+        if (attemptsRef.current < maxAttempts) {
+          // Retry if not reached max attempts
+          setTimeout(pollWhatsAppInfo, delay);
+        } else {
+          showErrorPopup("Error fetching WhatsApp information.");
+          setStep(3); // Move to next step even if error occurs
+        }
       }
     };
 
@@ -149,7 +166,7 @@ function App() {
       )}
 
       {/* Step 3: Balance and Earnings Section */}
-      {step === 3 && <Balance />}
+      {step === 3 && <Balance whatsappInfo={whatsappInfo} />}
 
       {/* Error Popup */}
       {showPopup && (
