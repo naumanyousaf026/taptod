@@ -59,6 +59,10 @@ router.get("/generate-whatsapp-qr", verifyToken, async (req, res) => {
 
 // Helper function to format WhatsApp ID
 function formatWhatsAppId(wid) {
+  if (!wid || typeof wid !== 'string') {
+    return null;
+  }
+  
   const parts = wid.split(":")[0];
   return `+${parts}`;
 }
@@ -81,7 +85,7 @@ async function fetchWhatsAppAccounts() {
   const url = "https://smspro.pk/api/get/wa.accounts";
   const params = {
     secret: "e7d0098a46e0af84f43c2b240af5984ae267e08d",
-    sid:1,
+    sid: 1,
     limit: 10,
     page: 1,
   };
@@ -112,12 +116,12 @@ async function fetchWhatsAppAccounts() {
       }
     }
   } catch (error) {
-    // console.error("Error fetching WhatsApp accounts:", error.message);
+    console.error("Error fetching WhatsApp accounts:", error.message);
   }
 }
 
-// Periodically check WhatsApp accounts every hour
-setInterval(fetchWhatsAppAccounts, 60 * 1000);// Run every hour
+// Periodically check WhatsApp accounts every minute
+setInterval(fetchWhatsAppAccounts, 60 * 1000);
 
 router.get("/get-whatsapp-info", verifyToken, async (req, res) => {
   const token = req.query.token;
@@ -127,107 +131,99 @@ router.get("/get-whatsapp-info", verifyToken, async (req, res) => {
   }
 
   const url = "https://smspro.pk/api/get/wa.info";
-  let retries = 5; // Maximum number of retries
-  let delay = 5000; // Initial delay (5 seconds)
 
   try {
-    let response;
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      response = await axios.get(url, { params: { token } });
-
-      if (response.data.status === 200 && response.data.data) {
-        break; // Exit loop if valid data is received
-      }
-
-      if (response.data.status === 301) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay *= 2; // Exponential backoff
-      }
-    }
-
+    // First attempt to get WhatsApp info
+    const response = await axios.get(url, { params: { token } });
+    
+    // Check if the response contains proper data
     if (response.data.status !== 200 || !response.data.data) {
-      return res.status(response.data.status).json({
-        message: "WhatsApp info is still not ready. Please try again later.",
+      return res.status(200).json({
+        message: "Waiting for WhatsApp information. Please try again.",
       });
     }
 
     const { wid, unique } = response.data.data;
+    
+    if (!wid || !unique) {
+      return res.status(200).json({
+        message: "Incomplete WhatsApp data received. Please try again.",
+      });
+    }
+    
     const whatsappId = formatWhatsAppId(wid);
+    
+    if (!whatsappId) {
+      return res.status(200).json({
+        message: "Failed to format WhatsApp ID. Please try again.",
+      });
+    }
 
-    let contact = await Contact.findOne({ whatsappId, status: 0 });
+    // Find existing contact or create new one
+    let contact = await Contact.findOne({ whatsappId });
+    let isNewContact = false;
 
     if (contact) {
-      // Existing contact: Check time since last connection
-      const previousConnectedAt = contact.connectedAt;
+      // Existing contact: Update details
+      const previousConnectedAt = contact.connectedAt || new Date();
       contact.uniqueId = unique;
-      contact.status = 1;
+      contact.status = 1; // Connected
       contact.connectedAt = new Date();
 
       // Calculate time difference in milliseconds
       const timeDifference = contact.connectedAt - previousConnectedAt;
       contact.rewarded = timeDifference >= 60000; // 1 minute check
     } else {
-      // New contact: Create and allocate referral rewards
+      // New contact: Create new
+      isNewContact = true;
       contact = new Contact({
         whatsappId,
         uniqueId: unique,
         userId: req.user.id,
-        status: 1,
+        status: 1, // Connected
         connectedAt: new Date(),
-        rewarded: false, // Initial state; let allocateRewards set if needed
+        balance: 0,
+        rewarded: false
       });
+    }
 
-      // Allocate rewards only for new contacts (referrals)
+    // Save the contact
+    await contact.save();
+
+    // Allocate rewards for new contacts
+    if (isNewContact) {
       await allocateRewards(contact);
     }
 
-    await contact.save();
-
     // Update user balance with fixed 10-rupee reward
     const user = await User.findById(req.user.id);
-    user.Balance += 10;
-    user.Rewards += 10;
-    await user.save();
+    if (user) {
+      user.Balance = (user.Balance || 0) + 10;
+      user.Rewards = (user.Rewards || 0) + 10;
+      await user.save();
+    }
 
+    // Send success response with data
     return res.status(200).json({
-      message: "Reward processed successfully.",
+      message: "WhatsApp info retrieved successfully.",
       data: {
         whatsappId: contact.whatsappId,
         uniqueId: contact.uniqueId,
-        reward: contact.rewarded ? 30 : 0, // 30 rupees if rewarded
-        balance: contact.balance,
-        userRewards: user.Rewards,
-        userBalance: user.Balance,
+        reward: contact.rewarded ? 30 : 0,
+        balance: contact.balance || 0,
+        userRewards: user?.Rewards || 0,
+        userBalance: user?.Balance || 0,
       },
     });
   } catch (error) {
+    console.error("Error in get-whatsapp-info:", error);
     return res.status(500).json({
-      message: `Error fetching WhatsApp information: ${error.message || "Unknown error"}`,
+      message: "Error fetching WhatsApp information.",
+      error: error.message || "Unknown error",
     });
   }
 });
 
-router.get("/last-connected", verifyToken, async (req, res) => {
-  try {
-    // Get the last connected contact
-    const lastContact = await Contact.findOne().sort({ lastRewardedAt: -1 });
-
-    if (!lastContact) {
-      return res.status(404).json({ message: "No connected users found." });
-    }
-
-    return res.status(200).json({
-      whatsappId: lastContact.whatsappId,
-      uniqueId: lastContact.uniqueId,  // Include the uniqueId field
-      status: lastContact.status === 1 ? "Connected" : "Disconnected",
-      balance: lastContact.balance,
-      lastConnectedAt: lastContact.lastRewardedAt,
-    });
-  } catch (error) {
-    return res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
 // Delete WhatsApp Account Endpoint
 router.delete("/delete-wa-account", verifyToken, async (req, res) => {
   const { unique } = req.query;
@@ -243,11 +239,9 @@ router.delete("/delete-wa-account", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "Contact not found." });
     }
 
-    // Check if status is disconnected (2)
-    if (contact.status === 2) {
-      contact.status = 0; // Update to inactive status
-      await contact.save();
-    }
+    // Update contact status regardless of current status
+    contact.status = 0; // Set to inactive status
+    await contact.save();
 
     // Call SMS Pro's delete API
     const smsProResponse = await axios.get("https://smspro.pk/api/delete/wa.account", {
@@ -271,6 +265,43 @@ router.delete("/delete-wa-account", verifyToken, async (req, res) => {
   }
 });
 
+// Update last-connected endpoint to return the correct status
+router.get("/last-connected", verifyToken, async (req, res) => {
+  try {
+    // Get the last connected contact
+    const lastContact = await Contact.findOne().sort({ lastRewardedAt: -1 });
+
+    if (!lastContact) {
+      return res.status(404).json({ message: "No connected users found." });
+    }
+
+    // Map numeric status to string status
+    let statusText;
+    switch (lastContact.status) {
+      case 0:
+        statusText = "Disconnected";
+        break;
+      case 1:
+        statusText = "Connected";
+        break;
+      case 2:
+        statusText = "Disconnected";
+        break;
+      default:
+        statusText = "Unknown";
+    }
+
+    return res.status(200).json({
+      whatsappId: lastContact.whatsappId,
+      uniqueId: lastContact.uniqueId,
+      status: statusText,
+      balance: lastContact.balance || 0,
+      lastConnectedAt: lastContact.lastRewardedAt,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 // Update status to 0
 router.put("/update-status", verifyToken, async (req, res) => {
   const { whatsappId, status } = req.body;
@@ -294,4 +325,5 @@ router.put("/update-status", verifyToken, async (req, res) => {
     return res.status(500).json({ message: "Internal server error.", error });
   }
 });
+
 module.exports = router;
